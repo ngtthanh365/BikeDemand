@@ -1,0 +1,54 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python cache / test
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Big Data generated data
+data/processed/
+data/output/
+data/temp/
+
+# Logs
+logs/
+*.log
+
+# Spark
+spark-warehouse/
+metastore_db/
+
+# PostgreSQL
+postgres/data/
+
+# Docker
+*.pid
+
+# Node
+node_modules/
+
+# Temporary
+tmp/
+temp/
+
+# Citi Bike datasets
+data/raw/
+data/processed/
