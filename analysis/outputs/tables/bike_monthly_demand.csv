@@ -1,0 +1,13 @@
+month,month_name,rideable_type,total_trips
+1,January,classic_bike,12541
+1,January,electric_bike,27496
+2,February,classic_bike,8236
+2,February,electric_bike,17572
+3,March,classic_bike,21679
+3,March,electric_bike,40683
+4,April,classic_bike,28794
+4,April,electric_bike,53478
+5,May,classic_bike,35603
+5,May,electric_bike,59738
+6,June,classic_bike,41241
+6,June,electric_bike,68647

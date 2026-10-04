@@ -1,0 +1,13 @@
+month,month_name,member_casual,total_trips
+1,January,casual,5476
+1,January,member,34561
+2,February,casual,3550
+2,February,member,22258
+3,March,casual,11976
+3,March,member,50386
+4,April,casual,17966
+4,April,member,64306
+5,May,casual,23818
+5,May,member,71523
+6,June,casual,30438
+6,June,member,79450

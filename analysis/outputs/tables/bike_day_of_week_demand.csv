@@ -1,0 +1,15 @@
+day_of_week,day_name,rideable_type,total_trips
+0,Monday,classic_bike,20534
+0,Monday,electric_bike,35176
+1,Tuesday,classic_bike,23972
+1,Tuesday,electric_bike,40497
+2,Wednesday,classic_bike,22828
+2,Wednesday,electric_bike,40329
+3,Thursday,classic_bike,21811
+3,Thursday,electric_bike,41738
+4,Friday,classic_bike,21643
+4,Friday,electric_bike,44944
+5,Saturday,classic_bike,19130
+5,Saturday,electric_bike,35164
+6,Sunday,classic_bike,18176
+6,Sunday,electric_bike,29766
