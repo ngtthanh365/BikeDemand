@@ -371,6 +371,9 @@ filtered_daily_df["date"] = pd.to_datetime(
 # Merge daily prediction
 # ------------------------------------------------------------
 
+prediction_daily = pd.DataFrame()
+
+
 if (
     not prediction_df.empty
     and "date" in prediction_df.columns
@@ -390,11 +393,30 @@ if (
         .reset_index()
     )
 
-    filtered_daily_df = filtered_daily_df.merge(
+
+# ------------------------------------------------------------
+# Merge Actual + Predicted
+# ------------------------------------------------------------
+
+filtered_actual_prediction_df = (
+    filtered_daily_df
+    .merge(
         prediction_daily,
         on="date",
         how="left"
     )
+)
+
+
+# ------------------------------------------------------------
+# Sort theo ngày
+# ------------------------------------------------------------
+
+filtered_actual_prediction_df = (
+    filtered_actual_prediction_df
+    .sort_values("date")
+    .reset_index(drop=True)
+)
 
 
 # ============================================================
@@ -571,7 +593,7 @@ st.header("📈 Demand Analysis")
 st.subheader("Actual vs Predicted Demand")
 
 show_prediction_chart(
-    filtered_prediction_df
+    filtered_actual_prediction_df
 )
 
 
@@ -604,7 +626,7 @@ with col2:
     st.subheader("📅 Demand by Day")
 
     show_daily_chart(
-        filtered_daily_df
+        filtered_actual_prediction_df
     )
 
 

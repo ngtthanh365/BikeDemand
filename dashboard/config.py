@@ -10,7 +10,7 @@ ML_OUTPUT_DIR = BASE_DIR / "analysis" / "outputs" / "ml"
 
 
 # Các file dữ liệu Dashboard
-PREDICTION_FILE = ML_OUTPUT_DIR / "dashboard_prediction.csv"
+PREDICTION_FILE = ML_OUTPUT_DIR / "dashboard_prediction_full.csv"
 
 HOURLY_DEMAND_FILE = ML_OUTPUT_DIR / "dashboard_hourly_demand.csv"
 

@@ -10,6 +10,7 @@ from sklearn.metrics import (
 TRAIN_FILE = "analysis/outputs/ml/train.csv"
 VALIDATION_FILE = "analysis/outputs/ml/validation.csv"
 TEST_FILE = "analysis/outputs/ml/test.csv"
+FULL_DATA_FILE = "analysis/outputs/ml/citibike_ml_dataset.csv"
 
 OUTPUT_DIR = "analysis/outputs/ml"
 MODEL_NAME = "Random Forest"
@@ -25,6 +26,7 @@ print("=" * 70)
 train = pd.read_csv(TRAIN_FILE)
 validation = pd.read_csv(VALIDATION_FILE)
 test = pd.read_csv(TEST_FILE)
+full_data = pd.read_csv(FULL_DATA_FILE)
 
 FEATURES = [
     "hour",
@@ -63,6 +65,7 @@ print("\nDataset sizes:")
 print(f"Train:      {len(X_train):,}")
 print(f"Validation: {len(X_validation):,}")
 print(f"Test:       {len(X_test):,}")
+print(f"Full data:  {len(full_data):,}")
 
 # ============================================================
 # 3. TRAIN MODEL
@@ -195,7 +198,68 @@ test_results.to_csv(
 )
 
 # ============================================================
-# 9. SAVE METRICS
+# 9. CREATE FULL H1 PREDICTIONS FOR DASHBOARD
+# ============================================================
+
+print("\n" + "=" * 70)
+print("CREATING FULL H1 DASHBOARD PREDICTIONS")
+print("=" * 70)
+
+X_full = full_data[FEATURES]
+
+full_prediction = model.predict(X_full)
+
+dashboard_prediction_full = full_data[
+    [
+        "datetime",
+        "date",
+        "hour",
+        "day_of_week",
+        "month",
+        "total_trips"
+    ]
+].copy()
+
+dashboard_prediction_full["predicted_demand"] = full_prediction
+
+dashboard_prediction_full["model_name"] = MODEL_NAME
+
+dashboard_prediction_full["error"] = (
+    dashboard_prediction_full["total_trips"]
+    - dashboard_prediction_full["predicted_demand"]
+)
+
+dashboard_prediction_full["absolute_error"] = (
+    dashboard_prediction_full["error"].abs()
+)
+
+dashboard_prediction_full_file = (
+    f"{OUTPUT_DIR}/"
+    "dashboard_prediction_full.csv"
+)
+
+dashboard_prediction_full.to_csv(
+    dashboard_prediction_full_file,
+    index=False
+)
+
+print("\nFull H1 prediction:")
+print(f"  {dashboard_prediction_full_file}")
+
+print("\nRows:")
+print(f"  {len(dashboard_prediction_full):,}")
+
+print("\nDate range:")
+print(
+    f"  {dashboard_prediction_full['datetime'].min()}"
+)
+
+print(
+    f"  {dashboard_prediction_full['datetime'].max()}"
+)
+
+# ============================================================
+# 10. SAVE METRICS
 # ============================================================
 
 metrics = pd.DataFrame([
@@ -226,7 +290,7 @@ metrics.to_csv(
 )
 
 # ============================================================
-# 10. OUTPUT
+# 11. OUTPUT
 # ============================================================
 
 print("\n" + "=" * 70)
@@ -235,6 +299,9 @@ print("=" * 70)
 
 print("Predictions:")
 print(f"  {prediction_file}")
+
+print("\nFull H1 Dashboard Predictions:")
+print(f"  {dashboard_prediction_full_file}")
 
 print("\nMetrics:")
 print(f"  {metrics_file}")

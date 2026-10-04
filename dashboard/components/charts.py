@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -8,41 +9,124 @@ import streamlit as st
 
 def show_prediction_chart(df):
 
+    # --------------------------------------------------------
+    # Kiểm tra dữ liệu
+    # --------------------------------------------------------
+
+    if df.empty:
+
+        st.warning(
+            "Không có dữ liệu trong khoảng thời gian đã chọn."
+        )
+
+        return
+
+
+    # --------------------------------------------------------
+    # Copy dữ liệu
+    # --------------------------------------------------------
+
+    plot_df = df.copy()
+
+
+    # --------------------------------------------------------
+    # Kiểm tra cột date
+    # --------------------------------------------------------
+
+    if "date" not in plot_df.columns:
+
+        st.warning(
+            "Dữ liệu Actual vs Predicted không có cột 'date'."
+        )
+
+        return
+
+
+    # --------------------------------------------------------
+    # Chuẩn hóa date
+    # --------------------------------------------------------
+
+    plot_df["date"] = pd.to_datetime(
+        plot_df["date"]
+    )
+
+    plot_df = (
+        plot_df
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+
+
+    # ========================================================
+    # KIỂM TRA DỮ LIỆU ACTUAL / PREDICTED
+    # ========================================================
+
+    has_actual = (
+        "actual_demand"
+        in plot_df.columns
+    )
+
+    has_predicted = (
+        "predicted_demand"
+        in plot_df.columns
+    )
+
+
+    if not has_actual and not has_predicted:
+
+        st.warning(
+            "Không tìm thấy dữ liệu Actual hoặc Predicted."
+        )
+
+        return
+
+
+    # ========================================================
+    # TẠO BIỂU ĐỒ
+    # ========================================================
+
     fig = go.Figure()
+
 
     # --------------------------------------------------------
     # Actual
     # --------------------------------------------------------
 
-    if "actual_demand" in df.columns:
+    if has_actual:
 
         fig.add_trace(
             go.Scatter(
-                x=df["datetime"],
-                y=df["actual_demand"],
-                mode="lines",
+                x=plot_df["date"],
+                y=plot_df["actual_demand"],
+                mode="lines+markers",
                 name="Actual"
             )
         )
+
 
     # --------------------------------------------------------
     # Predicted
     # --------------------------------------------------------
 
-    if "predicted_demand" in df.columns:
+    if has_predicted:
 
         fig.add_trace(
             go.Scatter(
-                x=df["datetime"],
-                y=df["predicted_demand"],
-                mode="lines",
+                x=plot_df["date"],
+                y=plot_df["predicted_demand"],
+                mode="lines+markers",
                 name="Predicted"
             )
         )
 
+
+    # ========================================================
+    # LAYOUT
+    # ========================================================
+
     fig.update_layout(
-        title="Actual vs Predicted Demand",
-        xaxis_title="Time",
+        title="Actual vs Predicted Demand — Daily",
+        xaxis_title="Date",
         yaxis_title="Number of Trips",
         hovermode="x unified",
         legend_title="Demand Type",
@@ -50,6 +134,11 @@ def show_prediction_chart(df):
             tickangle=0
         )
     )
+
+
+    # ========================================================
+    # DISPLAY
+    # ========================================================
 
     st.plotly_chart(
         fig,
