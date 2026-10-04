@@ -6,7 +6,7 @@ def show_kpis(
     avg_daily_trips,
     peak_hour,
     peak_hour_trips,
-    model_mae
+    test_mae
 ):
     col1, col2, col3, col4, col5 = st.columns(5)
 
@@ -36,6 +36,6 @@ def show_kpis(
 
     with col5:
         st.metric(
-            "Prediction MAE",
-            f"{model_mae:.2f}"
+            "Test MAE",
+            f"{test_mae:.2f}"
         )

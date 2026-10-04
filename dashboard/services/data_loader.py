@@ -40,3 +40,102 @@ def load_model_metrics():
     df = pd.read_csv(MODEL_METRICS_FILE)
 
     return df
+
+
+# ============================================================
+# MEMBER VS CASUAL
+# ============================================================
+
+@st.cache_data
+def load_member_type():
+    df = pd.read_csv(
+        "data/processed/citibike_2026_H1.csv",
+        usecols=["member_casual"]
+    )
+
+    result = (
+        df["member_casual"]
+        .value_counts()
+        .reset_index()
+    )
+
+    result.columns = ["member_casual", "trips"]
+
+    return result
+
+
+# ============================================================
+# ELECTRIC VS CLASSIC
+# ============================================================
+
+@st.cache_data
+def load_bike_type():
+    df = pd.read_csv(
+        "data/processed/citibike_2026_H1.csv",
+        usecols=["rideable_type"]
+    )
+
+    result = (
+        df["rideable_type"]
+        .value_counts()
+        .reset_index()
+    )
+
+    result.columns = ["rideable_type", "trips"]
+
+    return result
+
+
+# ============================================================
+# TOP START STATIONS
+# ============================================================
+
+@st.cache_data
+def load_top_stations():
+    df = pd.read_csv(
+        "data/processed/citibike_2026_H1.csv",
+        usecols=["start_station_id"]
+    )
+
+    result = (
+        df["start_station_id"]
+        .value_counts()
+        .head(10)
+        .reset_index()
+    )
+
+    result.columns = ["station_id", "trips"]
+
+    return result
+
+# ============================================================
+# RAW DATA FOR FILTER
+# ============================================================
+
+@st.cache_data
+def load_raw_data():
+
+    df = pd.read_csv(
+        "data/processed/citibike_2026_H1.csv",
+        usecols=[
+            "started_at",
+            "ended_at",
+            "member_casual",
+            "rideable_type",
+            "start_station_id"
+        ]
+    )
+
+    # --------------------------------------------------------
+    # Chuyển thời gian
+    # --------------------------------------------------------
+
+    df["started_at"] = pd.to_datetime(
+        df["started_at"]
+    )
+
+    df["ended_at"] = pd.to_datetime(
+        df["ended_at"]
+    )
+
+    return df
