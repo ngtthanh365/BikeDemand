@@ -616,7 +616,7 @@ Ví dụ cấu trúc logic:
 
 ---
 
-# TASK 6 — KAFKA CONSUMER
+# TASK 6 — KAFKA CONSUMER 🟢 DONE
 
 ## Mục tiêu
 
@@ -654,7 +654,7 @@ Consumer phải kiểm tra:
 
 ---
 
-# TASK 7 — SPARK PROCESSING
+# TASK 7 — SPARK PROCESSING 🟢 DONE
 
 ## Mục tiêu
 
@@ -752,7 +752,7 @@ trip_count
 
 ---
 
-# TASK 8 — GHI DỮ LIỆU VÀO POSTGRESQL
+# TASK 8 — GHI DỮ LIỆU VÀO POSTGRESQL 🟢 DONE
 
 ## Mục tiêu
 
