@@ -54,11 +54,19 @@ st.set_page_config(
 # TITLE
 # ============================================================
 
-st.title("🚲 Citi Bike Demand Analysis & Prediction")
-
-st.caption(
-    "Phân tích và dự báo nhu cầu sử dụng xe đạp Citi Bike — H1 2026"
+st.title(
+    "🚲 Citi Bike Demand Analysis & Prediction"
 )
+
+st.markdown(
+    """
+    **Phân tích và dự báo nhu cầu sử dụng xe đạp Citi Bike**
+
+    `H1 2026` • 01/01/2026 — 30/06/2026
+    """
+)
+
+st.divider()
 
 
 # ============================================================
@@ -78,10 +86,14 @@ raw_df = load_raw_data()
 
 
 # ============================================================
-# FILTER
+# SIDEBAR FILTER
 # ============================================================
 
-st.sidebar.header("🔎 Dashboard Filters")
+st.sidebar.title("🔎 Filters")
+
+st.sidebar.caption(
+    "Lọc dữ liệu để xem nhu cầu sử dụng Citi Bike."
+)
 
 
 # ------------------------------------------------------------
@@ -136,6 +148,21 @@ bike_options = [
 selected_bike = st.sidebar.selectbox(
     "🚲 Bike Type",
     bike_options
+)
+
+
+# ------------------------------------------------------------
+# SIDEBAR INFORMATION
+# ------------------------------------------------------------
+
+st.sidebar.divider()
+
+st.sidebar.caption(
+    "Dataset: Citi Bike H1 2026"
+)
+
+st.sidebar.caption(
+    "415,708 trips • 181 days"
 )
 
 
@@ -520,32 +547,37 @@ show_kpis(
 # FILTER INFORMATION
 # ============================================================
 
-st.caption(
-    f"Đang hiển thị {total_trips:,} chuyến "
-    f"({total_days:,} ngày) "
-    f"• User: {selected_user} "
-    f"• Bike: {selected_bike}"
+st.info(
+    f"📊 Đang hiển thị **{total_trips:,} chuyến** "
+    f"trong **{total_days:,} ngày** "
+    f"• User: **{selected_user}** "
+    f"• Bike: **{selected_bike}**"
 )
 
 
 # ============================================================
-# ACTUAL VS PREDICTED
+# SECTION 1 — DEMAND ANALYSIS
 # ============================================================
 
 st.divider()
 
-st.subheader("📈 Actual vs Predicted Demand")
+st.header("📈 Demand Analysis")
+
+
+# ------------------------------------------------------------
+# ACTUAL VS PREDICTED
+# ------------------------------------------------------------
+
+st.subheader("Actual vs Predicted Demand")
 
 show_prediction_chart(
     filtered_prediction_df
 )
 
 
-# ============================================================
+# ------------------------------------------------------------
 # HOURLY + DAILY DEMAND
-# ============================================================
-
-st.divider()
+# ------------------------------------------------------------
 
 col1, col2 = st.columns(2)
 
@@ -577,10 +609,17 @@ with col2:
 
 
 # ============================================================
-# MEMBER VS CASUAL
+# SECTION 2 — USER & BIKE ANALYSIS
 # ============================================================
 
 st.divider()
+
+st.header("👥 User & Bike Analysis")
+
+
+# ------------------------------------------------------------
+# MEMBER VS CASUAL
+# ------------------------------------------------------------
 
 st.subheader("👤 Member vs Casual")
 
@@ -608,11 +647,9 @@ else:
     )
 
 
-# ============================================================
+# ------------------------------------------------------------
 # ELECTRIC VS CLASSIC
-# ============================================================
-
-st.divider()
+# ------------------------------------------------------------
 
 st.subheader("🚲 Bike Type")
 
@@ -641,12 +678,19 @@ else:
 
 
 # ============================================================
-# TOP 10 START STATIONS
+# SECTION 3 — STATION ANALYSIS
 # ============================================================
 
 st.divider()
 
-st.subheader("📍 Top 10 Start Stations")
+st.header("📍 Station Analysis")
+
+
+# ------------------------------------------------------------
+# TOP 10 START STATIONS
+# ------------------------------------------------------------
+
+st.subheader("Top 10 Start Stations")
 
 if not filtered_top_station_df.empty:
 
@@ -667,12 +711,19 @@ else:
 
 
 # ============================================================
-# MODEL COMPARISON
+# SECTION 4 — MACHINE LEARNING
 # ============================================================
 
 st.divider()
 
-st.subheader("🤖 Model Comparison")
+st.header("🤖 Machine Learning")
+
+
+# ------------------------------------------------------------
+# MODEL COMPARISON
+# ------------------------------------------------------------
+
+st.subheader("Model Comparison")
 
 show_model_comparison_chart(
     metrics_df
@@ -685,9 +736,13 @@ show_model_comparison_chart(
 
 st.divider()
 
-st.subheader("📋 Prediction Data")
+with st.expander("📋 View Prediction Data"):
 
-st.dataframe(
-    filtered_prediction_df,
-    width="stretch"
-)
+    st.caption(
+        "Dữ liệu dự báo được sử dụng cho biểu đồ Actual vs Predicted."
+    )
+
+    st.dataframe(
+        filtered_prediction_df,
+        width="stretch"
+    )
