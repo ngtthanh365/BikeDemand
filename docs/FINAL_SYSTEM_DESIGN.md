@@ -7,7 +7,7 @@ Tên đề tài:
 Phân tích và dự báo nhu cầu sử dụng xe đạp Citi Bike bằng hệ thống Big Data
 
 Dataset:
-Citi Bike Trip Data
+Citi Bike Trip Data - sử dụng Citi Bike Trip History Dataset, là dữ liệu lịch sử chuyến đi được Citi Bike công khai trên trang System Data chính thức. Citi Bike là hệ thống xe đạp chia sẻ công cộng của New York City,
 
 Phạm vi:
 6 tháng đầu năm 2026

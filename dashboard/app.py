@@ -17,12 +17,7 @@ if str(DASHBOARD_DIR) not in sys.path:
 
 from services.data_loader import (
     load_prediction_data,
-    load_hourly_demand,
-    load_daily_demand,
     load_model_metrics,
-    load_member_type,
-    load_bike_type,
-    load_top_stations,
     load_raw_data
 )
 
@@ -74,13 +69,8 @@ st.divider()
 # ============================================================
 
 prediction_df = load_prediction_data()
-hourly_df = load_hourly_demand()
-daily_df = load_daily_demand()
-metrics_df = load_model_metrics()
 
-member_df = load_member_type()
-bike_df = load_bike_type()
-top_station_df = load_top_stations()
+metrics_df = load_model_metrics()
 
 raw_df = load_raw_data()
 
@@ -229,6 +219,14 @@ if selected_bike != "All":
         == selected_bike_value
     ]
 
+# ============================================================
+# PREDICTION FILTER CONTROL
+# ============================================================
+
+show_prediction = (
+    selected_user == "All"
+    and selected_bike == "All"
+)
 
 # ============================================================
 # FILTERED DATA CHECK
@@ -313,7 +311,8 @@ filtered_hourly_actual = (
 # ------------------------------------------------------------
 
 if (
-    not prediction_df.empty
+    show_prediction
+    and not prediction_df.empty
     and "datetime" in prediction_df.columns
     and "predicted_demand" in prediction_df.columns
 ):
@@ -371,11 +370,17 @@ filtered_daily_df["date"] = pd.to_datetime(
 # Merge daily prediction
 # ------------------------------------------------------------
 
-prediction_daily = pd.DataFrame()
+prediction_daily = pd.DataFrame(
+    columns=[
+        "date",
+        "predicted_demand"
+    ]
+)
 
 
 if (
-    not prediction_df.empty
+    show_prediction
+    and not prediction_df.empty
     and "date" in prediction_df.columns
     and "predicted_demand" in prediction_df.columns
 ):
@@ -460,16 +465,23 @@ total_trips = len(filtered_raw_df)
 
 
 # ------------------------------------------------------------
-# Số ngày thực tế sau Filter
+# Số ngày trong khoảng thời gian sau Filter
 # ------------------------------------------------------------
 
-if not filtered_raw_df.empty:
+if len(date_range) == 2:
+
+    selected_start_date = pd.Timestamp(
+        date_range[0]
+    )
+
+    selected_end_date = pd.Timestamp(
+        date_range[1]
+    )
 
     total_days = (
-        filtered_raw_df["started_at"]
-        .dt.date
-        .nunique()
-    )
+        selected_end_date
+        - selected_start_date
+    ).days + 1
 
 else:
 
@@ -584,6 +596,18 @@ st.info(
 st.divider()
 
 st.header("📈 Demand Analysis")
+
+
+# ------------------------------------------------------------
+# Prediction information
+# ------------------------------------------------------------
+
+if not show_prediction:
+
+    st.info(
+        "ℹ️ Prediction chỉ áp dụng cho tổng nhu cầu "
+        "và được ẩn khi lọc theo User Type hoặc Bike Type."
+    )
 
 
 # ------------------------------------------------------------
@@ -760,11 +784,21 @@ st.divider()
 
 with st.expander("📋 View Prediction Data"):
 
-    st.caption(
-        "Dữ liệu dự báo được sử dụng cho biểu đồ Actual vs Predicted."
-    )
+    if show_prediction:
 
-    st.dataframe(
-        filtered_prediction_df,
-        width="stretch"
-    )
+        st.caption(
+            "Dữ liệu dự báo được sử dụng cho biểu đồ Actual vs Predicted."
+        )
+
+        st.dataframe(
+            filtered_prediction_df,
+            width="stretch"
+        )
+
+    else:
+
+        st.info(
+            "ℹ️ Prediction chỉ áp dụng cho tổng nhu cầu. "
+            "Dữ liệu dự báo được ẩn khi lọc theo "
+            "User Type hoặc Bike Type."
+        )

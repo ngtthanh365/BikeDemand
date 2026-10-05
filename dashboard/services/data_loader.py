@@ -1,112 +1,152 @@
+import sys
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
+
+# ============================================================
+# PROJECT PATH
+# ============================================================
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+# ============================================================
+# IMPORT DATABASE
+# ============================================================
+
+from database.postgres import (
+    load_predictions,
+    load_dashboard_trips
+)
+
+
 from config import (
-    PREDICTION_FILE,
-    HOURLY_DEMAND_FILE,
-    DAILY_DEMAND_FILE,
     MODEL_METRICS_FILE
 )
 
 
+# ============================================================
+# PREDICTION DATA
+# ============================================================
+
 @st.cache_data
 def load_prediction_data():
-    df = pd.read_csv(PREDICTION_FILE)
 
-    df["datetime"] = pd.to_datetime(df["datetime"])
-    df["date"] = pd.to_datetime(df["date"])
+    # --------------------------------------------------------
+    # Đọc prediction từ PostgreSQL
+    # --------------------------------------------------------
+
+    df = load_predictions(
+        model_name="Random Forest",
+        model_version="1.0"
+    )
+
+    if df.empty:
+        return df
+
+
+    # --------------------------------------------------------
+    # Đổi tên cột PostgreSQL về cấu trúc Dashboard cũ
+    # --------------------------------------------------------
+
+    df = df.rename(
+        columns={
+            "target_time": "datetime",
+            "actual_demand": "total_trips"
+        }
+    )
+
+
+    # --------------------------------------------------------
+    # Chuyển thời gian
+    # --------------------------------------------------------
+
+    df["datetime"] = pd.to_datetime(
+        df["datetime"]
+    )
+
+
+    # --------------------------------------------------------
+    # Tạo các cột thời gian
+    # --------------------------------------------------------
+
+    df["date"] = (
+        df["datetime"]
+        .dt.normalize()
+    )
+
+    df["hour"] = (
+        df["datetime"]
+        .dt.hour
+    )
+
+    df["day_of_week"] = (
+        df["datetime"]
+        .dt.dayofweek
+    )
+
+    df["month"] = (
+        df["datetime"]
+        .dt.month
+    )
+
+
+    # --------------------------------------------------------
+    # Tính sai số dự đoán
+    # --------------------------------------------------------
+
+    df["error"] = (
+        df["total_trips"]
+        - df["predicted_demand"]
+    )
+
+    df["absolute_error"] = (
+        df["error"]
+        .abs()
+    )
+
+
+    # --------------------------------------------------------
+    # Giữ cấu trúc giống Dashboard cũ
+    # --------------------------------------------------------
+
+    df = df[
+        [
+            "datetime",
+            "date",
+            "hour",
+            "day_of_week",
+            "month",
+            "total_trips",
+            "predicted_demand",
+            "model_name",
+            "error",
+            "absolute_error"
+        ]
+    ]
+
 
     return df
 
 
-@st.cache_data
-def load_hourly_demand():
-    df = pd.read_csv(HOURLY_DEMAND_FILE)
-
-    return df
-
-
-@st.cache_data
-def load_daily_demand():
-    df = pd.read_csv(DAILY_DEMAND_FILE)
-
-    df["date"] = pd.to_datetime(df["date"])
-
-    return df
-
+# ============================================================
+# MODEL METRICS
+# ============================================================
 
 @st.cache_data
 def load_model_metrics():
-    df = pd.read_csv(MODEL_METRICS_FILE)
+
+    df = pd.read_csv(
+        MODEL_METRICS_FILE
+    )
 
     return df
 
-
-# ============================================================
-# MEMBER VS CASUAL
-# ============================================================
-
-@st.cache_data
-def load_member_type():
-    df = pd.read_csv(
-        "data/processed/citibike_2026_H1.csv",
-        usecols=["member_casual"]
-    )
-
-    result = (
-        df["member_casual"]
-        .value_counts()
-        .reset_index()
-    )
-
-    result.columns = ["member_casual", "trips"]
-
-    return result
-
-
-# ============================================================
-# ELECTRIC VS CLASSIC
-# ============================================================
-
-@st.cache_data
-def load_bike_type():
-    df = pd.read_csv(
-        "data/processed/citibike_2026_H1.csv",
-        usecols=["rideable_type"]
-    )
-
-    result = (
-        df["rideable_type"]
-        .value_counts()
-        .reset_index()
-    )
-
-    result.columns = ["rideable_type", "trips"]
-
-    return result
-
-
-# ============================================================
-# TOP START STATIONS
-# ============================================================
-
-@st.cache_data
-def load_top_stations():
-    df = pd.read_csv(
-        "data/processed/citibike_2026_H1.csv",
-        usecols=["start_station_id"]
-    )
-
-    result = (
-        df["start_station_id"]
-        .value_counts()
-        .head(10)
-        .reset_index()
-    )
-
-    result.columns = ["station_id", "trips"]
-
-    return result
 
 # ============================================================
 # RAW DATA FOR FILTER
@@ -115,16 +155,12 @@ def load_top_stations():
 @st.cache_data
 def load_raw_data():
 
-    df = pd.read_csv(
-        "data/processed/citibike_2026_H1.csv",
-        usecols=[
-            "started_at",
-            "ended_at",
-            "member_casual",
-            "rideable_type",
-            "start_station_id"
-        ]
-    )
+    # --------------------------------------------------------
+    # Đọc dữ liệu từ PostgreSQL
+    # --------------------------------------------------------
+
+    df = load_dashboard_trips()
+
 
     # --------------------------------------------------------
     # Chuyển thời gian
@@ -137,5 +173,6 @@ def load_raw_data():
     df["ended_at"] = pd.to_datetime(
         df["ended_at"]
     )
+
 
     return df

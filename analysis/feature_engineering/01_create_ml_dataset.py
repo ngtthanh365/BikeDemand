@@ -1,12 +1,31 @@
 import os
+import sys
+
 import pandas as pd
+
+
+# =========================
+# 0. PROJECT PATH
+# =========================
+
+# Cho phép import module database từ project root
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        ".."
+    )
+)
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from database.postgres import load_hourly_demand
 
 
 # =========================
 # 1. CONFIG
 # =========================
-
-INPUT_FILE = "data/processed/citibike_2026_H1.csv"
 
 OUTPUT_DIR = "analysis/outputs/ml"
 OUTPUT_FILE = f"{OUTPUT_DIR}/citibike_ml_dataset.csv"
@@ -16,45 +35,55 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # =========================
 # 2. LOAD DATA
+#    FROM POSTGRESQL
 # =========================
 
 print("=" * 70)
 print("FEATURE ENGINEERING 01 - CREATE ML DATASET")
 print("=" * 70)
 
-df = pd.read_csv(INPUT_FILE)
+df = load_hourly_demand()
 
-print(f"\nRaw rows: {len(df):,}")
-
-
-# =========================
-# 3. DATETIME
-# =========================
-
-df["started_at"] = pd.to_datetime(df["started_at"])
-
-df["date"] = df["started_at"].dt.date
-df["hour"] = df["started_at"].dt.hour
-df["day_of_week"] = df["started_at"].dt.dayofweek
-df["month"] = df["started_at"].dt.month
+print(f"\nPostgreSQL hourly rows: {len(df):,}")
 
 
 # =========================
-# 4. HOURLY DEMAND
+# 3. PREPARE HOURLY DEMAND
 # =========================
 
-hourly = (
-    df.groupby(
-        ["date", "hour"],
-        as_index=False
-    )
-    .size()
-    .rename(columns={"size": "total_trips"})
+# Đảm bảo timestamp đúng kiểu datetime
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+# Chỉ lấy dữ liệu cần thiết cho ML
+hourly = df[
+    [
+        "timestamp",
+        "demand"
+    ]
+].copy()
+
+# Đổi tên để tương thích với pipeline ML hiện tại
+hourly = hourly.rename(
+    columns={
+        "timestamp": "datetime",
+        "demand": "total_trips"
+    }
 )
 
+hourly["date"] = hourly["datetime"].dt.date
+hourly["hour"] = hourly["datetime"].dt.hour
+
+hourly = hourly[
+    [
+        "date",
+        "hour",
+        "total_trips"
+    ]
+]
+
 
 # =========================
-# 5. CREATE COMPLETE
+# 4. CREATE COMPLETE
 #    DATE-HOUR TIMELINE
 # =========================
 
@@ -73,12 +102,23 @@ calendar = pd.DataFrame({
 
 calendar["date"] = calendar["datetime"].dt.date
 calendar["hour"] = calendar["datetime"].dt.hour
-calendar["day_of_week"] = calendar["datetime"].dt.dayofweek
-calendar["month"] = calendar["datetime"].dt.month
+
+# Pandas:
+# Monday = 0
+# Tuesday = 1
+# ...
+# Sunday = 6
+calendar["day_of_week"] = (
+    calendar["datetime"].dt.dayofweek
+)
+
+calendar["month"] = (
+    calendar["datetime"].dt.month
+)
 
 
 # =========================
-# 6. MERGE DEMAND
+# 5. MERGE DEMAND
 # =========================
 
 ml_df = calendar.merge(
@@ -87,6 +127,9 @@ ml_df = calendar.merge(
     how="left"
 )
 
+# Những giờ không có chuyến đi không xuất hiện
+# trong hourly_demand của PostgreSQL.
+# Vì vậy demand của các giờ này = 0.
 ml_df["total_trips"] = (
     ml_df["total_trips"]
     .fillna(0)
@@ -95,7 +138,7 @@ ml_df["total_trips"] = (
 
 
 # =========================
-# 7. HISTORICAL FEATURES
+# 6. HISTORICAL FEATURES
 # =========================
 
 # Demand from previous hour
@@ -119,7 +162,7 @@ ml_df["lag_168"] = (
 
 
 # =========================
-# 8. ROLLING FEATURES
+# 7. ROLLING FEATURES
 # =========================
 
 # Average demand over previous 24 hours
@@ -140,19 +183,7 @@ ml_df["rolling_7d"] = (
 
 
 # =========================
-# 9. DATETIME STRING
-# =========================
-
-ml_df["datetime"] = pd.to_datetime(
-    ml_df["date"].astype(str)
-    + " "
-    + ml_df["hour"].astype(str)
-    + ":00:00"
-)
-
-
-# =========================
-# 10. COLUMN ORDER
+# 8. COLUMN ORDER
 # =========================
 
 ml_df = ml_df[
@@ -173,8 +204,8 @@ ml_df = ml_df[
 
 
 # =========================
-# 11. REMOVE ROWS
-#     WITHOUT HISTORY
+# 9. REMOVE ROWS
+#    WITHOUT HISTORY
 # =========================
 
 before = len(ml_df)
@@ -193,7 +224,7 @@ removed = before - len(ml_df)
 
 
 # =========================
-# 12. SAVE
+# 10. SAVE
 # =========================
 
 ml_df.to_csv(
@@ -203,7 +234,7 @@ ml_df.to_csv(
 
 
 # =========================
-# 13. VALIDATION
+# 11. VALIDATION
 # =========================
 
 print("\n" + "=" * 70)
@@ -227,15 +258,28 @@ print("\nMissing values:")
 print(ml_df.isnull().sum())
 
 print("\nFirst 10 rows:")
-print(ml_df.head(10).to_string(index=False))
+print(
+    ml_df.head(10).to_string(
+        index=False
+    )
+)
 
 print("\nLast 10 rows:")
-print(ml_df.tail(10).to_string(index=False))
+print(
+    ml_df.tail(10).to_string(
+        index=False
+    )
+)
 
 print("\nTarget statistics:")
-print(ml_df["total_trips"].describe())
+print(
+    ml_df["total_trips"].describe()
+)
 
 print("\nOutput:")
 print(f"  {OUTPUT_FILE}")
 
-print("\nFeature Engineering 01 completed successfully.")
+print(
+    "\nFeature Engineering 01 "
+    "completed successfully."
+)
