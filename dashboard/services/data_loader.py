@@ -135,6 +135,34 @@ def load_prediction_data():
 
 
 # ============================================================
+# FUTURE FORECAST DATA (PHASE 2)
+# ============================================================
+
+@st.cache_data(ttl=60)
+def load_future_forecast_data():
+    """
+    Đọc dữ liệu Future Demand Forecast (168h) từ bảng predictions trong PostgreSQL.
+    Lọc chính xác: model_name = 'Random Forest' và model_version = 'future-v1'.
+    """
+
+    df = load_predictions(
+        model_name="Random Forest",
+        model_version="future-v1"
+    )
+
+    if df.empty:
+        return df
+
+    df["target_time"] = pd.to_datetime(df["target_time"])
+    df = df.sort_values("target_time").reset_index(drop=True)
+
+    if "prediction_time" in df.columns:
+        df["prediction_time"] = pd.to_datetime(df["prediction_time"])
+
+    return df
+
+
+# ============================================================
 # MODEL METRICS
 # ============================================================
 

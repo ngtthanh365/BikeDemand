@@ -17,6 +17,7 @@ if str(DASHBOARD_DIR) not in sys.path:
 
 from services.data_loader import (
     load_prediction_data,
+    load_future_forecast_data,
     load_model_metrics,
     load_raw_data
 )
@@ -30,7 +31,8 @@ from components.charts import (
     show_member_chart,
     show_bike_type_chart,
     show_top_station_chart,
-    show_model_comparison_chart
+    show_model_comparison_chart,
+    show_future_forecast_chart
 )
 
 
@@ -69,6 +71,8 @@ st.divider()
 # ============================================================
 
 prediction_df = load_prediction_data()
+
+future_forecast_df = load_future_forecast_data()
 
 metrics_df = load_model_metrics()
 
@@ -774,6 +778,117 @@ st.subheader("Model Comparison")
 show_model_comparison_chart(
     metrics_df
 )
+
+
+# ============================================================
+# SECTION 5 — FUTURE DEMAND FORECAST (168 HOURS)
+# ============================================================
+
+st.divider()
+
+st.header("🔮 Future Demand Forecast")
+
+st.caption(
+    "Dự báo nhu cầu sử dụng Citi Bike trong 7 ngày (168 giờ tiếp theo) "
+    "sử dụng mô hình **Random Forest (future-v1)** với thuật toán Recursive Forecasting."
+)
+
+if future_forecast_df.empty:
+
+    st.info(
+        "ℹ️ Chưa có dữ liệu dự báo tương lai (`future-v1`) trong cơ sở dữ liệu. "
+        "Vui lòng chạy module dự báo: `python analysis/ml/08_future_forecast.py`."
+    )
+
+else:
+
+    # --------------------------------------------------------
+    # 1. Thống kê cơ bản
+    # --------------------------------------------------------
+
+    total_points = len(future_forecast_df)
+    start_time = future_forecast_df["target_time"].min()
+    end_time = future_forecast_df["target_time"].max()
+    mean_demand = future_forecast_df["predicted_demand"].mean()
+    min_demand = future_forecast_df["predicted_demand"].min()
+    max_demand = future_forecast_df["predicted_demand"].max()
+    total_forecast_demand = future_forecast_df["predicted_demand"].sum()
+
+    # --------------------------------------------------------
+    # 2. Hiển thị KPI cards
+    # --------------------------------------------------------
+
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4, col_kpi5 = st.columns(5)
+
+    with col_kpi1:
+        st.metric(
+            label="⏱️ Chu kỳ dự báo",
+            value=f"{total_points} giờ",
+            help="7 ngày liên tục (168 giờ)",
+        )
+
+    with col_kpi2:
+        st.metric(
+            label="📅 Khoảng thời gian",
+            value=f"{start_time.strftime('%d/%m')} → {end_time.strftime('%d/%m')}",
+            help=f"{start_time} đến {end_time}",
+        )
+
+    with col_kpi3:
+        st.metric(
+            label="📊 TB / giờ (Mean)",
+            value=f"{mean_demand:.1f}",
+            help="Số chuyến trung bình mỗi giờ",
+        )
+
+    with col_kpi4:
+        st.metric(
+            label="⚡ Đỉnh tải (Max)",
+            value=f"{max_demand:.1f}",
+            help=f"Giờ cao điểm: {future_forecast_df.loc[future_forecast_df['predicted_demand'].idxmax()]['target_time'].strftime('%d/%m %H:00')}",
+        )
+
+    with col_kpi5:
+        st.metric(
+            label="🌙 Đáy đêm (Min)",
+            value=f"{min_demand:.1f}",
+            help=f"Giờ thấp điểm: {future_forecast_df.loc[future_forecast_df['predicted_demand'].idxmin()]['target_time'].strftime('%d/%m %H:00')}",
+        )
+
+    # --------------------------------------------------------
+    # 3. Model & Version Information
+    # --------------------------------------------------------
+
+    pred_time_str = "N/A"
+    if "prediction_time" in future_forecast_df.columns and not future_forecast_df["prediction_time"].isnull().all():
+        pred_time_str = str(future_forecast_df["prediction_time"].iloc[0])
+
+    st.caption(
+        f"**Mô hình:** Random Forest • **Phiên bản:** `future-v1` • **Tổng nhu cầu 7 ngày:** {total_forecast_demand:,.0f} chuyến • **Thời điểm chạy:** {pred_time_str}"
+    )
+
+    # --------------------------------------------------------
+    # 4. Biểu đồ đường dự báo
+    # --------------------------------------------------------
+
+    show_future_forecast_chart(
+        future_forecast_df
+    )
+
+    # --------------------------------------------------------
+    # 5. Bảng dữ liệu chi tiết
+    # --------------------------------------------------------
+
+    with st.expander("📋 Xem bảng dữ liệu Future Forecast (168 dòng)"):
+        st.caption(
+            "Dữ liệu chi tiết từng giờ được đọc trực tiếp từ PostgreSQL bảng `predictions`."
+        )
+        preview_df = future_forecast_df.copy()
+        preview_df["target_time"] = preview_df["target_time"].dt.strftime("%Y-%m-%d %H:%M")
+        st.dataframe(
+            preview_df,
+            width="stretch"
+        )
 
 
 # ============================================================

@@ -1,426 +1,124 @@
-# FUTURE FORECAST HANDOVER
+# FUTURE FORECAST HANDOVER — BIKEDEMAND v2.0
 
-## 1. Mục tiêu
+## 1. Trạng thái Hoàn thành Nghiệm thu (Handover Status)
 
-Đây là phần tiếp theo sau khi hoàn thành integration TV1 + TV2.
+Giai đoạn Phase 2 — Future Demand Forecast (7 ngày / 168 giờ) đã hoàn thành toàn diện và nghiệm thu đạt 100% PASS:
 
-Trạng thái:
-
-``` text
-Historical Prediction = DONE
-Future Forecast        = NOT IMPLEMENTED
+```text
+Historical Prediction (Phase 1) = DONE (Random Forest / 1.0 — 4,176 rows)
+Future Demand Forecast (Phase 2) = DONE (Random Forest / future-v1 — 168 rows)
+Integration & Regression Tests  = DONE (100% PASS)
+Dashboard Streamlit (Port 8501) = DONE (HTTP 200 OK — Section 5 Live)
 ```
 
-Không sửa lại historical prediction nếu không cần thiết.
+---
 
-------------------------------------------------------------------------
+## 2. Thông số Kỹ thuật Bàn giao Bắt buộc
 
-## 2. Prediction hiện tại là gì?
+| Thông số bàn giao | Giá trị thực tế đã nghiệm thu |
+|---|---|
+| **Mốc thời gian thực tế mới nhất (`latest_actual`)** | `2026-09-30 23:00:00` (Xác định động từ PostgreSQL `hourly_demand`) |
+| **Mốc thời gian bắt đầu dự báo (`forecast_start`)** | `2026-10-01 00:00:00` (`latest_actual + 1 hour`) |
+| **Mốc thời gian kết thúc dự báo (`forecast_end`)** | `2026-10-07 23:00:00` (`latest_actual + 168 hours`) |
+| **Chu kỳ dự báo (`forecast_horizon`)** | **168 giờ liên tục (7 ngày)**, strictly 1 giờ giữa các mốc liên tiếp |
+| **Thuật toán & Mô hình (`model_name`)** | **Random Forest Regressor** (`n_estimators=200`, `max_depth=15`, `random_state=42`) |
+| **Phiên bản mô hình (`model_version`)** | **`future-v1`** |
+| **Nhãn thực tế tương lai (`actual_demand`)** | **`NULL`** (168/168 dòng đều là NULL, tuyệt đối không leakage) |
+| **File kết quả xuất ra (`output_file`)** | [analysis/outputs/ml/future_forecast.csv](file:///d:/BigData/BikeDemand/analysis/outputs/ml/future_forecast.csv) (19,105 bytes, 168 rows) |
+| **Trạng thái bảng `predictions` PostgreSQL** | **4,344 dòng tổng cộng**:<br>• `Random Forest / 1.0`: 4,176 dòng (H1 2026, 0 NULL actual)<br>• `Random Forest / future-v1`: 168 dòng (100% NULL actual) |
+| **Kết quả kiểm thử tự động** | • `tests/test_future_forecast_integration.py`: **6/6 PASS**<br>• `tests/test_validate_data.py`: **8/8 PASS** |
+| **Giao diện Dashboard Streamlit** | [http://localhost:8501](http://localhost:8501) • **HTTP 200 OK** • Section **🔮 Future Demand Forecast** |
 
-Hiện tại Random Forest dự đoán trong khoảng:
+---
 
-``` text
-2026-01-08
-→
-2026-06-30
+## 3. Kiến trúc Luồng Dự báo Tương lai (Future Forecast Pipeline Architecture)
+
+```text
+Citi Bike S3 (Dữ liệu mới)
+        │
+        ▼
+python scripts/update_data.py (Tải, validate, Kafka, Spark aggregate)
+        │
+        ▼
+PostgreSQL: Bảng hourly_demand cập nhật MAX(timestamp) mới
+        │
+        ▼
+python analysis/ml/08_future_forecast.py
+        │
+        ├─► [1/5] Lấy động latest_actual = MAX(timestamp) từ DB
+        ├─► [2/5] Huấn luyện Random Forest in-memory trên 6,384 mẫu hợp lệ
+        ├─► [3/5] Trích xuất 168 giờ lịch sử trực tiếp làm buffer ban đầu
+        ├─► [4/5] Chạy Recursive Forecasting 168 bước (No Future Leakage)
+        ├─► [5/5] Xuất file analysis/outputs/ml/future_forecast.csv
+        └─► [6/6] Ghi đè an toàn vào bảng predictions (future-v1, actual=NULL)
+        │
+        ▼
+Streamlit Dashboard (http://localhost:8501)
+        └─► load_future_forecast_data() tự động nạp 168 điểm dự báo
 ```
 
-Actual demand của các thời điểm này đã tồn tại.
+---
 
-Vì vậy có thể đánh giá:
+## 4. Hướng dẫn Vận hành Thủ công (Runbook)
 
-``` text
-MAE
-RMSE
-R²
-Actual vs Predicted
+Hệ thống tuân thủ nguyên tắc **Không Scheduler / Không Daemon / Không Cron ngầm**, vận hành hoàn toàn theo mô hình **On-Demand**:
+
+### Bước 1: Cập nhật dữ liệu thực tế mới
+```powershell
+python scripts/update_data.py
 ```
+- Tự động phát hiện dữ liệu tháng mới trên Citi Bike S3, tải về, làm sạch và nạp vào PostgreSQL.
+- Nếu chưa có tháng mới, script báo `[CHECK] No new data detected` và thoát an toàn với mã `0`.
 
-Đây là:
-
-``` text
-Historical / Offline Prediction
+### Bước 2: Tạo và làm mới dự báo 7 ngày tiếp theo
+```powershell
+python analysis/ml/08_future_forecast.py
 ```
-
-Không phải Future Forecast.
-
-------------------------------------------------------------------------
-
-## 3. Future Forecast cần làm gì?
-
-Mục tiêu đầu tiên:
-
-``` text
-Forecast 24 giờ tiếp theo
-```
-
-Sau khi ổn định mới mở rộng:
-
-``` text
-Forecast 7 ngày tiếp theo
-```
-
-Với dataset hiện tại, thời điểm actual cuối là:
-
-``` text
-2026-06-30 23:00
-```
-
-Future Forecast đầu tiên bắt đầu:
-
-``` text
-2026-07-01 00:00
-```
-
-------------------------------------------------------------------------
-
-## 4. Vấn đề chính
-
-Random Forest hiện dùng:
-
-``` text
-hour
-day_of_week
-month
-lag_1
-lag_24
-lag_168
-rolling_24h
-rolling_7d
-```
-
-Để forecast:
-
-``` text
-2026-07-01 00:00
-```
-
-có thể lấy lag từ historical data.
-
-Nhưng để forecast:
-
-``` text
-2026-07-01 01:00
-```
-
-`lag_1` cần demand của:
-
-``` text
-2026-07-01 00:00
-```
-
-Đây là future value, không có actual.
-
-Do đó không được sử dụng future actual data.
-
-------------------------------------------------------------------------
-
-## 5. Hướng đề xuất
-
-Sử dụng:
-
-``` text
-Recursive Forecasting
-```
-
-Luồng:
-
-``` text
-Historical demand
-      ↓
-Tạo features cho t+1
-      ↓
-Predict t+1
-      ↓
-Thêm predicted t+1 vào demand history
-      ↓
-Tạo features cho t+2
-      ↓
-Predict t+2
-      ↓
-...
-```
-
-Ví dụ:
-
-``` text
-Last actual:
-2026-06-30 23:00
-
-Predict:
-2026-07-01 00:00
-      ↓
-Dùng prediction 00:00 để tạo lag/rolling
-      ↓
-Predict:
-2026-07-01 01:00
-```
-
-------------------------------------------------------------------------
-
-## 6. Không sửa historical pipeline
-
-Giữ nguyên:
-
-``` text
-analysis/ml/01_linear_regression.py
-analysis/ml/02_random_forest.py
-analysis/ml/03_gradient_boosting.py
-analysis/ml/04_model_comparison.py
-analysis/ml/05_prediction_analysis.py
-analysis/ml/06_prepare_dashboard_data.py
-analysis/ml/07_save_predictions_to_postgres.py
-```
-
-Tạo script mới:
-
-``` text
-analysis/ml/08_future_forecast.py
-```
-
-Mục đích là Future Forecast độc lập với evaluation hiện tại.
-
-------------------------------------------------------------------------
-
-## 7. Output đề xuất
-
-Có thể tạo:
-
-``` text
-analysis/outputs/ml/future_forecast.csv
-```
-
-Schema tối thiểu:
-
-``` text
-target_time
-predicted_demand
-model_name
-model_version
-```
-
-Ví dụ:
-
-``` text
-2026-07-01 00:00 | 85.4 | Random Forest | future-v1
-2026-07-01 01:00 | 72.1 | Random Forest | future-v1
-...
-```
-
-------------------------------------------------------------------------
-
-## 8. PostgreSQL
-
-Có thể tiếp tục dùng bảng:
-
-``` text
-predictions
-```
-
-Future row:
-
-``` text
-prediction_time   = CURRENT_TIMESTAMP
-target_time       = future timestamp
-predicted_demand  = forecast result
-actual_demand     = NULL
-model_name        = Random Forest
-model_version     = future-v1
-```
-
-Historical hiện tại:
-
-``` text
-Random Forest / 1.0
-```
-
-Future:
-
-``` text
-Random Forest / future-v1
-```
-
-Không dùng `1.0` cho Future Forecast.
-
-------------------------------------------------------------------------
-
-## 9. Lưu ý khi save prediction
-
-Hàm save historical hiện xóa dữ liệu theo:
-
-``` text
-model_name + model_version
-```
-
-Do đó Future Forecast phải dùng version riêng.
-
-Ví dụ:
-
-``` text
-Historical:
-Random Forest + 1.0
-
-Future:
-Random Forest + future-v1
-```
-
-Như vậy hai loại prediction không xóa lẫn nhau.
-
-------------------------------------------------------------------------
-
-## 10. Dashboard
-
-Sau khi Future Forecast chạy ổn định, thêm section mới:
-
-``` text
-🔮 Future Demand Forecast
-```
-
-Không thay thế biểu đồ:
-
-``` text
-Actual vs Predicted
-```
-
-hiện tại.
-
-Dashboard nên phân biệt:
-
-``` text
-Actual Demand
-Historical Prediction
-Future Forecast
-```
-
-Có thể thêm:
-
-``` text
-Forecast Horizon
-- Next 24 Hours
-- Next 7 Days
-```
-
-Nhưng triển khai 24h trước.
-
-------------------------------------------------------------------------
-
-## 11. Quy trình triển khai
-
-### Phase 1 --- Chuẩn bị
-
-``` text
-1. Chốt integration hiện tại.
-2. Commit/push phiên bản hiện tại.
-3. Không sửa Kafka/Spark/PostgreSQL pipeline của TV1.
-```
-
-### Phase 2 --- Forecast 24h
-
-``` text
-4. Tạo 08_future_forecast.py.
-5. Load historical hourly demand.
-6. Tạo recursive feature generation.
-7. Forecast 24 bước.
-8. Kiểm tra không sử dụng future actual.
-9. Xuất future_forecast.csv.
-```
-
-### Phase 3 --- PostgreSQL
-
-``` text
-10. Save forecast vào predictions.
-11. actual_demand = NULL.
-12. model_version = future-v1.
-13. Kiểm tra historical prediction vẫn còn nguyên.
-```
-
-### Phase 4 --- Dashboard
-
-``` text
-14. Tạo loader future prediction.
-15. Thêm Future Demand Forecast section.
-16. Hiển thị 24h forecast.
-17. Kiểm thử.
-```
-
-### Phase 5 --- Mở rộng
-
-``` text
-18. Sau khi 24h ổn định, thử 7 ngày.
-19. Đánh giá độ ổn định của recursive forecast.
-```
-
-------------------------------------------------------------------------
-
-## 12. Checkpoint trước khi bắt đầu
-
-Phải đảm bảo:
-
-``` text
-trips          = 415,708
-hourly_demand  = 4,254
-predictions    = 4,176 historical rows
-
-Random Forest Test MAE = 24.8594
-Random Forest Test R²  = 0.8789
-```
-
-Dashboard:
-
-``` text
-Total Trips       = 415,708
-Avg Trips / Day   = 2,297
-Peak Hour          = 17:00
-Peak Hour Trips    = 41,689
-Test MAE           = 24.86
-```
-
-Filter:
-
-``` text
-Member   = 322,484
-Casual   = 93,224
-Electric = 267,614
-Classic  = 148,094
-```
-
-------------------------------------------------------------------------
-
-## 13. Không làm các việc sau khi bắt đầu Future Forecast
-
-Không chạy lại Producer nếu không cần.
-
-Không chạy lại Spark append chỉ để làm Forecast.
-
-Không chạy:
-
-``` text
-docker compose down -v
-```
-
-Không hard-code PostgreSQL host port.
-
-Không commit `.env`.
-
-Không sửa historical prediction thành Future Forecast.
-
-------------------------------------------------------------------------
-
-## 14. Điểm bắt đầu lần sau
-
-Bắt đầu từ:
-
-``` text
-analysis/ml/08_future_forecast.py
-```
-
-Mục tiêu đầu tiên:
-
-``` text
-Forecast chính xác 24 timestamps:
-2026-07-01 00:00
-→
-2026-07-01 23:00
-```
-
-Sau khi 24h forecast chạy đúng mới tích hợp PostgreSQL và Dashboard.
+- Tự động lấy `latest_actual` mới nhất từ PostgreSQL, huấn luyện Random Forest in-memory và tạo đúng 168 giờ dự báo tiếp theo.
+- Tự động lưu vào CSV và cập nhật bảng `predictions` với phiên bản `future-v1`.
+
+### Bước 3: Kiểm tra kết quả trong Database và Dashboard
+- **Kiểm tra cơ sở dữ liệu:**
+  ```powershell
+  python -c "from database.postgres import get_connection; conn=get_connection(); cur=conn.cursor(); cur.execute('SELECT model_name, model_version, COUNT(*), MIN(target_time), MAX(target_time) FROM predictions GROUP BY model_name, model_version ORDER BY model_name, model_version;'); print(cur.fetchall()); conn.close()"
+  ```
+  *Kỳ vọng:* `1.0` có đúng 4,176 dòng; `future-v1` có đúng 168 dòng.
+- **Mở Dashboard Streamlit:**
+  ```powershell
+  streamlit run dashboard/app.py
+  ```
+  Truy cập tại `http://localhost:8501`. Section **🔮 Future Demand Forecast** hiển thị 5 thẻ KPI, biểu đồ Plotly 168 giờ và bảng dữ liệu chi tiết.
+
+---
+
+## 5. Cẩm nang Xử lý Sự cố Cơ bản (Troubleshooting Guide)
+
+| Tình huống sự cố | Nguyên nhân | Hướng dẫn xử lý |
+|---|---|---|
+| **Lỗi kết nối PostgreSQL** (`psycopg2.OperationalError`) | Container PostgreSQL đang dừng | Chạy `docker compose up -d postgres` và kiểm tra lại cổng 5432. |
+| **Bảng `hourly_demand` rỗng** | Chưa có dữ liệu tổng hợp giờ trong DB | Chạy `python scripts/update_data.py` để nạp dữ liệu chuyến đi và kích hoạt Spark aggregation. |
+| **Thông báo `No new data detected`** | Chưa có tháng mới trên S3 | Bình thường. Để cập nhật forecast trên dữ liệu hiện có, chạy trực tiếp `python analysis/ml/08_future_forecast.py`. |
+| **Dashboard hiển thị dự báo cũ** | Cache Streamlit đang giữ bản ghi cũ | Bấm phím `R` trên Dashboard hoặc chọn `Clear cache` $\rightarrow$ `Rerun` (cache tự động refresh sau 60 giây). |
+| **Cổng 8501 bị chiếm dụng** | Tiến trình Streamlit khác đang chạy | Truy cập trực tiếp `http://localhost:8501` hoặc đóng tiến trình cũ trước khi chạy lại. |
+
+---
+
+## 6. Các Giới hạn Kỹ thuật (Known Limitations)
+
+1. **Huấn luyện In-Memory:** Mô hình Random Forest được fit trực tiếp trong RAM mỗi khi chạy dự báo (khoảng 10-15s) để học từ dữ liệu mới nhất mà không ghi đè lên file trọng số Phase 1.
+2. **Độ dài lịch sử tối thiểu:** Cần tối thiểu 168 giờ lịch sử liên tục trước mốc dự báo để đủ buffer tính toán `lag_168` và `rolling_7d`.
+3. **Phụ thuộc PostgreSQL:** Yêu cầu container PostgreSQL đang chạy và có sẵn bảng `hourly_demand`.
+4. **Không tự động kích hoạt:** Hệ thống không tự động lên lịch chạy ngầm; người vận hành cần chủ động kích hoạt lệnh khi có nhu cầu làm mới dự báo.
+
+---
+
+## 7. Danh mục File Bàn giao
+
+1. **Engine dự báo:** [analysis/ml/08_future_forecast.py](file:///d:/BigData/BikeDemand/analysis/ml/08_future_forecast.py)
+2. **Script nạp DB phụ trợ:** [analysis/ml/09_save_future_forecast_to_postgres.py](file:///d:/BigData/BikeDemand/analysis/ml/09_save_future_forecast_to_postgres.py)
+3. **File CSV kết quả:** [analysis/outputs/ml/future_forecast.csv](file:///d:/BigData/BikeDemand/analysis/outputs/ml/future_forecast.csv)
+4. **Bộ test tích hợp:** [tests/test_future_forecast_integration.py](file:///d:/BigData/BikeDemand/tests/test_future_forecast_integration.py)
+5. **Dashboard giao diện:** [dashboard/app.py](file:///d:/BigData/BikeDemand/dashboard/app.py) & [dashboard/components/charts.py](file:///d:/BigData/BikeDemand/dashboard/components/charts.py)
+6. **Data service:** [dashboard/services/data_loader.py](file:///d:/BigData/BikeDemand/dashboard/services/data_loader.py) & [database/postgres.py](file:///d:/BigData/BikeDemand/database/postgres.py)
+7. **Tài liệu theo dõi tiến độ:** [docs/PHASE2_PROGRESS.md](file:///d:/BigData/BikeDemand/docs/PHASE2_PROGRESS.md)
+8. **Tài liệu bàn giao:** [docs/FUTURE_FORECAST_HANDOVER.md](file:///d:/BigData/BikeDemand/docs/FUTURE_FORECAST_HANDOVER.md)

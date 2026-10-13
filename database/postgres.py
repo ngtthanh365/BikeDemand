@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import pandas as pd
 import psycopg2
@@ -134,7 +135,7 @@ def save_predictions(
                 model_version
             )
             VALUES (
-                CURRENT_TIMESTAMP,
+                %s,
                 %s,
                 %s,
                 %s,
@@ -146,11 +147,28 @@ def save_predictions(
         records = []
 
         for _, row in df.iterrows():
+            # target_time: uu tien target_time neu co, fallback datetime
+            target_time = row["target_time"] if "target_time" in row else row["datetime"]
+
+            # prediction_time: uu tien prediction_time neu co, fallback datetime.now()
+            if "prediction_time" in row and pd.notnull(row["prediction_time"]):
+                pred_time = row["prediction_time"]
+            else:
+                pred_time = datetime.now()
+
+            # actual_demand: xu ly an toan cho ca Phase 1 (int) va Future Forecast (None/NULL)
+            actual_val = None
+            if "actual_demand" in row and pd.notnull(row["actual_demand"]):
+                actual_val = int(row["actual_demand"])
+            elif "total_trips" in row and pd.notnull(row["total_trips"]):
+                actual_val = int(row["total_trips"])
+
             records.append(
                 (
-                    row["datetime"],
+                    pred_time,
+                    target_time,
                     float(row["predicted_demand"]),
-                    int(row["total_trips"]),
+                    actual_val,
                     model_name,
                     model_version
                 )
@@ -187,6 +205,23 @@ def save_predictions(
     finally:
         connection.close()
 
+
+def save_future_predictions(
+    df,
+    model_name="Random Forest",
+    model_version="future-v1"
+):
+    """
+    Lưu kết quả dự báo tương lai (Future Forecast) vào bảng predictions.
+    Đảm bảo actual_demand là NULL và model_version là future-v1.
+    """
+    return save_predictions(
+        df=df,
+        model_name=model_name,
+        model_version=model_version
+    )
+
+
 def load_predictions(
     model_name="Random Forest",
     model_version="1.0"
@@ -202,6 +237,7 @@ def load_predictions(
 
         query = """
             SELECT
+                prediction_time,
                 target_time,
                 predicted_demand,
                 actual_demand,

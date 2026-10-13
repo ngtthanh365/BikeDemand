@@ -542,3 +542,67 @@ def show_model_comparison_chart(df):
         fig_r2,
         width="stretch"
     )
+
+
+# ============================================================
+# FUTURE DEMAND FORECAST (PHASE 2)
+# ============================================================
+
+def show_future_forecast_chart(df):
+    """
+    Hiển thị biểu đồ đường dự báo nhu cầu 7 ngày tiếp theo (168 giờ).
+    Trục thời gian (target_time) sắp xếp tăng dần.
+    """
+    if df.empty:
+        st.warning("⚠️ Không có dữ liệu Future Demand Forecast.")
+        return
+
+    plot_df = df.copy()
+    plot_df["target_time"] = pd.to_datetime(plot_df["target_time"])
+    plot_df = plot_df.sort_values("target_time").reset_index(drop=True)
+
+    fig = go.Figure()
+
+    # Thêm đường dự báo nhu cầu tương lai
+    fig.add_trace(
+        go.Scatter(
+            x=plot_df["target_time"],
+            y=plot_df["predicted_demand"],
+            mode="lines+markers",
+            name="Forecast Demand",
+            line=dict(color="#0066CC", width=2.5),
+            marker=dict(size=4, color="#004C99"),
+            fill="tozeroy",
+            fillcolor="rgba(0, 102, 204, 0.08)",
+            hovertemplate="<b>Thời gian:</b> %{x|%Y-%m-%d %H:%M}<br><b>Dự báo:</b> %{y:.1f} chuyến<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        title="7-Day Future Demand Forecast (168 Continuous Hours)",
+        xaxis_title="Thời gian (Giờ)",
+        yaxis_title="Nhu cầu dự báo (Chuyến / Giờ)",
+        hovermode="x unified",
+        xaxis=dict(
+            tickformat="%b %d, %H:%M",
+            dtick=24 * 3600 * 1000,  # Tick mỗi 24 giờ
+            gridcolor="rgba(200, 200, 200, 0.2)",
+        ),
+        yaxis=dict(
+            gridcolor="rgba(200, 200, 200, 0.2)",
+            rangemode="tozero",
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+        ),
+        margin=dict(l=40, r=40, t=60, b=40),
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+    )
