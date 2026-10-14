@@ -3,6 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 import pandas as pd
+import pydeck as pdk
 
 
 # ============================================================
@@ -19,10 +20,16 @@ from services.data_loader import (
     load_prediction_data,
     load_future_forecast_data,
     load_model_metrics,
-    load_raw_data
+    load_raw_data,
+    load_station_activity,
+    format_date_range_label
 )
 
 from components.kpi import show_kpis
+
+import importlib
+import components.charts
+importlib.reload(components.charts)
 
 from components.charts import (
     show_prediction_chart,
@@ -32,7 +39,8 @@ from components.charts import (
     show_bike_type_chart,
     show_top_station_chart,
     show_model_comparison_chart,
-    show_future_forecast_chart
+    show_future_forecast_chart,
+    show_station_symbol_map
 )
 
 
@@ -591,6 +599,143 @@ st.info(
     f"• User: **{selected_user}** "
     f"• Bike: **{selected_bike}**"
 )
+
+
+# ============================================================
+# SECTION — STATION COMPOSITE MAP (PHASE 3)
+# ============================================================
+
+st.divider()
+
+st.header("🗺️ Station Composite Map")
+
+st.caption(
+    "Bản đồ hoạt động các trạm xe đạp Citi Bike kết hợp Point/Proportional Symbol Map "
+    "và lớp nhiệt nền (Heatmap) thể hiện mật độ tập trung nhu cầu."
+)
+
+# ------------------------------------------------------------
+# 1. Tải dữ liệu hoạt động trạm theo khoảng thời gian
+# ------------------------------------------------------------
+start_map_date = date_range[0] if len(date_range) >= 1 else None
+end_map_date = date_range[1] if len(date_range) == 2 else None
+
+is_full_range = (
+    len(date_range) == 2
+    and date_range[0] == min_date
+    and date_range[1] == max_date
+)
+
+if is_full_range:
+    station_df = load_station_activity(None, None)
+    map_date_label = f"Toàn bộ dữ liệu ({min_date.strftime('%d/%m/%Y')} — {max_date.strftime('%d/%m/%Y')})"
+else:
+    station_df = load_station_activity(start_map_date, end_map_date)
+    map_date_label = format_date_range_label(start_map_date, end_map_date)
+
+# ------------------------------------------------------------
+# 2. Điều khiển hiển thị (Controls)
+# ------------------------------------------------------------
+col_map_ctrl1, col_map_ctrl2, col_map_ctrl3 = st.columns([2, 1, 1])
+with col_map_ctrl1:
+    st.markdown(f"📅 **Phạm vi hiển thị:** `{map_date_label}`")
+with col_map_ctrl2:
+    selected_style_name = st.selectbox(
+        "🗺️ Nền bản đồ",
+        options=[
+            "CARTO Positron (Sáng)",
+            "CARTO Voyager (Chi tiết)",
+            "CARTO Dark Matter (Tối)"
+        ],
+        index=0,
+        help="Lớp nền bản đồ địa lý thực tế (vector tiles: đường phố, công viên, địa danh)"
+    )
+with col_map_ctrl3:
+    toggle_heatmap = st.checkbox(
+        "🔥 Bật Heatmap nền",
+        value=True,
+        help="Bật/tắt lớp nhiệt mật độ tập trung nhu cầu bên dưới các marker trạm"
+    )
+
+STYLE_MAPPING = {
+    "CARTO Positron (Sáng)": pdk.map_styles.CARTO_LIGHT,
+    "CARTO Voyager (Chi tiết)": pdk.map_styles.CARTO_ROAD,
+    "CARTO Dark Matter (Tối)": pdk.map_styles.CARTO_DARK,
+}
+chosen_map_style = STYLE_MAPPING.get(selected_style_name, pdk.map_styles.CARTO_LIGHT)
+
+# ------------------------------------------------------------
+# 3. Thống kê nhanh cấp trạm (Station Metrics)
+# ------------------------------------------------------------
+if not station_df.empty:
+    st_active_count = len(station_df)
+    st_total_activity = int(station_df["activity_count"].sum())
+    st_total_starts = int(station_df["start_count"].sum())
+    st_total_ends = int(station_df["end_count"].sum())
+    top_station_row = station_df.iloc[0]
+    top_station_name = top_station_row["station_name"]
+    top_station_activity = int(top_station_row["activity_count"])
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    with m1:
+        st.metric("📍 Số trạm hoạt động", f"{st_active_count:,}")
+    with m2:
+        st.metric("🔄 Tổng hoạt động", f"{st_total_activity:,}")
+    with m3:
+        st.metric("🟢 Lượt bắt đầu", f"{st_total_starts:,}")
+    with m4:
+        st.metric("🔴 Lượt kết thúc", f"{st_total_ends:,}")
+    with m5:
+        st.metric(
+            "🏆 Trạm sôi động nhất",
+            f"{top_station_activity:,}",
+            help=f"{top_station_name} (ID: {top_station_row['station_id']})"
+        )
+
+# ------------------------------------------------------------
+# 4. Hiển thị bản đồ PyDeck
+# ------------------------------------------------------------
+try:
+    show_station_symbol_map(
+        station_df,
+        show_heatmap=toggle_heatmap,
+        date_label=map_date_label,
+        map_style=chosen_map_style,
+    )
+except Exception as e:
+    st.error(f"⚠️ Có lỗi xảy ra khi hiển thị bản đồ trạm: {e}")
+
+# ------------------------------------------------------------
+# 5. Chi tiết bảng xếp hạng trạm
+# ------------------------------------------------------------
+if not station_df.empty:
+    with st.expander("📋 Xem danh sách & xếp hạng hoạt động các trạm"):
+        st.caption(
+            "Dữ liệu tổng hợp trực tiếp từ PostgreSQL theo các trạm có hoạt động trong phạm vi lọc."
+        )
+        table_cols = [
+            "station_id",
+            "station_name",
+            "start_count",
+            "end_count",
+            "activity_count",
+            "latitude",
+            "longitude",
+        ]
+        display_table = station_df[[c for c in table_cols if c in station_df.columns]].copy()
+        display_table.rename(
+            columns={
+                "station_id": "Mã trạm",
+                "station_name": "Tên trạm",
+                "start_count": "Lượt bắt đầu",
+                "end_count": "Lượt kết thúc",
+                "activity_count": "Tổng hoạt động",
+                "latitude": "Vĩ độ",
+                "longitude": "Kinh độ",
+            },
+            inplace=True
+        )
+        st.dataframe(display_table, width="stretch", hide_index=True)
 
 
 # ============================================================

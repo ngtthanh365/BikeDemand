@@ -1,0 +1,8 @@
+# Pyrefly configuration for BikeDemand
+# Uses the project's virtual environment .venv where dependencies are installed.
+python-interpreter-path = ".venv/Scripts/python.exe"
+
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
