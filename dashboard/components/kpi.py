@@ -8,42 +8,67 @@ def show_kpis(
     peak_hour_trips,
     test_mae
 ):
+    """
+    Hiển thị 5 thẻ KPI tổng quan chuẩn phong cách Geospatial Intelligence:
+    Nền card #111D38, viền mỏng, bo góc, phân cấp chữ rõ ràng và hover nhẹ tối đa 2px.
+    """
     col1, col2, col3, col4, col5 = st.columns(
         5,
         gap="medium"
     )
 
-    with col1:
-        st.metric(
-            label="🚲 Total Trips",
-            value=f"{total_trips:,}",
-            help="Tổng số chuyến xe trong khoảng thời gian đã chọn."
-        )
+    kpi_items = [
+        (
+            col1,
+            "🚲 TOTAL TRIPS",
+            f"{total_trips:,}",
+            "Tổng số chuyến xe trong khoảng thời gian đã chọn.",
+            "#00F2FE",
+            "kpi-cyan",
+        ),
+        (
+            col2,
+            "📊 AVG TRIPS / DAY",
+            f"{avg_daily_trips:,.0f}",
+            "Số chuyến xe trung bình mỗi ngày.",
+            "#38BDF8",
+            "kpi-blue",
+        ),
+        (
+            col3,
+            "🕐 PEAK HOUR",
+            str(peak_hour),
+            "Khung giờ có nhu cầu sử dụng xe cao nhất.",
+            "#FBBF24",
+            "kpi-amber",
+        ),
+        (
+            col4,
+            "🔥 PEAK HOUR TRIPS",
+            f"{peak_hour_trips:,}",
+            "Số chuyến ghi nhận trong giờ cao điểm.",
+            "#F97316",
+            "kpi-orange",
+        ),
+        (
+            col5,
+            "🤖 TEST MAE",
+            f"{test_mae:.2f}",
+            "Sai số tuyệt đối trung bình của Random Forest trên tập Test.",
+            "#10B981",
+            "kpi-emerald",
+        ),
+    ]
 
-    with col2:
-        st.metric(
-            label="📊 Avg Trips / Day",
-            value=f"{avg_daily_trips:,.0f}",
-            help="Số chuyến xe trung bình mỗi ngày."
-        )
-
-    with col3:
-        st.metric(
-            label="🕐 Peak Hour",
-            value=peak_hour,
-            help="Khung giờ có nhu cầu sử dụng xe cao nhất."
-        )
-
-    with col4:
-        st.metric(
-            label="🔥 Peak Hour Trips",
-            value=f"{peak_hour_trips:,}",
-            help="Số chuyến xe được ghi nhận trong giờ cao điểm."
-        )
-
-    with col5:
-        st.metric(
-            label="🤖 Test MAE",
-            value=f"{test_mae:.2f}",
-            help="Sai số tuyệt đối trung bình của mô hình Random Forest trên tập Test."
-        )
+    for col, label, value, help_text, accent_color, css_class in kpi_items:
+        with col:
+            st.markdown(
+                f"""
+                <div class="kpi-card {css_class}">
+                    <div class="kpi-label">{label}</div>
+                    <div class="kpi-value" style="color: {accent_color};">{value}</div>
+                    <div class="kpi-help">{help_text}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )

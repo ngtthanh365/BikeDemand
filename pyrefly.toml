@@ -6,3 +6,11 @@ project-includes = [
     "**/*.py*",
     "**/*.ipynb",
 ]
+
+search-path = [
+    "dashboard",
+    ".",
+]
+
+[errors]
+missing-attribute = false

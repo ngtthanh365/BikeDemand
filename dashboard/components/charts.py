@@ -6,296 +6,249 @@ import streamlit as st
 
 
 # ============================================================
+# PLOTLY DARK THEME HELPER (GEOSPATIAL INTELLIGENCE)
+# ============================================================
+
+def _apply_dark_theme(
+    fig: go.Figure,
+    title: str = "",
+    xaxis_title: str | None = None,
+    yaxis_title: str | None = None,
+    barmode: str | None = None,
+    hovermode: str = "x unified",
+    legend_title: str | None = None,
+    extra_layout: dict | None = None
+) -> go.Figure:
+    """
+    Áp dụng Dark Theme chuẩn Geospatial Intelligence cho biểu đồ Plotly:
+    - Nền tối #111D38 / trong suốt hòa nhập với giao diện.
+    - Lưới tọa độ mờ nhẹ (rgba(148, 163, 184, 0.14)).
+    - Typography rõ ràng, màu chữ sáng #F8FAFC và #94A3B8.
+    - Legend có khung nền và viền kính nhẹ.
+    """
+    layout_args = dict(
+        template="plotly_dark",
+        paper_bgcolor="rgba(17, 29, 56, 0.4)",
+        plot_bgcolor="rgba(11, 19, 41, 0.3)",
+        font=dict(
+            family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+            color="#E2E8F0",
+            size=12
+        ),
+        hovermode=hovermode,
+        xaxis=dict(
+            gridcolor="rgba(148, 163, 184, 0.14)",
+            zerolinecolor="rgba(148, 163, 184, 0.2)",
+            tickfont=dict(color="#94A3B8"),
+            title_font=dict(color="#CBD5E1"),
+            tickangle=0
+        ),
+        yaxis=dict(
+            gridcolor="rgba(148, 163, 184, 0.14)",
+            zerolinecolor="rgba(148, 163, 184, 0.2)",
+            tickfont=dict(color="#94A3B8"),
+            title_font=dict(color="#CBD5E1")
+        ),
+        legend=dict(
+            bgcolor="rgba(17, 29, 56, 0.8)",
+            bordercolor="rgba(148, 163, 184, 0.2)",
+            borderwidth=1,
+            font=dict(color="#E2E8F0", size=11)
+        ),
+        margin=dict(l=45, r=30, t=50, b=45)
+    )
+
+    if title:
+        layout_args["title"] = dict(
+            text=title,
+            font=dict(size=14, color="#F8FAFC"),
+            x=0.01,
+            xanchor="left"
+        )
+    if xaxis_title:
+        layout_args["xaxis"]["title"] = xaxis_title
+    if yaxis_title:
+        layout_args["yaxis"]["title"] = yaxis_title
+    if barmode:
+        layout_args["barmode"] = barmode
+    if legend_title:
+        layout_args["legend"]["title"] = dict(text=legend_title, font=dict(color="#94A3B8", size=11))
+    if extra_layout:
+        layout_args.update(extra_layout)
+
+    fig.update_layout(**layout_args)
+    return fig
+
+
+# ============================================================
 # ACTUAL VS PREDICTED
 # ============================================================
 
-def show_prediction_chart(df):
-
-    # --------------------------------------------------------
-    # Kiểm tra dữ liệu
-    # --------------------------------------------------------
-
+def show_prediction_chart(df, key: str | None = None):
     if df.empty:
-
-        st.warning(
-            "Không có dữ liệu trong khoảng thời gian đã chọn."
-        )
-
+        st.warning("Không có dữ liệu trong khoảng thời gian đã chọn.")
         return
-
-
-    # --------------------------------------------------------
-    # Copy dữ liệu
-    # --------------------------------------------------------
 
     plot_df = df.copy()
 
-
-    # --------------------------------------------------------
-    # Kiểm tra cột date
-    # --------------------------------------------------------
-
     if "date" not in plot_df.columns:
-
-        st.warning(
-            "Dữ liệu Actual vs Predicted không có cột 'date'."
-        )
-
+        st.warning("Dữ liệu Actual vs Predicted không có cột 'date'.")
         return
 
+    plot_df["date"] = pd.to_datetime(plot_df["date"])
+    plot_df = plot_df.sort_values("date").reset_index(drop=True)
 
-    # --------------------------------------------------------
-    # Chuẩn hóa date
-    # --------------------------------------------------------
-
-    plot_df["date"] = pd.to_datetime(
-        plot_df["date"]
-    )
-
-    plot_df = (
-        plot_df
-        .sort_values("date")
-        .reset_index(drop=True)
-    )
-
-
-    # ========================================================
-    # KIỂM TRA DỮ LIỆU ACTUAL / PREDICTED
-    # ========================================================
-
-    has_actual = (
-        "actual_demand"
-        in plot_df.columns
-    )
-
-    has_predicted = (
-        "predicted_demand"
-        in plot_df.columns
-    )
-
+    has_actual = "actual_demand" in plot_df.columns
+    has_predicted = "predicted_demand" in plot_df.columns
 
     if not has_actual and not has_predicted:
-
-        st.warning(
-            "Không tìm thấy dữ liệu Actual hoặc Predicted."
-        )
-
+        st.warning("Không tìm thấy dữ liệu Actual hoặc Predicted.")
         return
-
-
-    # ========================================================
-    # TẠO BIỂU ĐỒ
-    # ========================================================
 
     fig = go.Figure()
 
-
-    # --------------------------------------------------------
-    # Actual
-    # --------------------------------------------------------
-
     if has_actual:
-
         fig.add_trace(
             go.Scatter(
                 x=plot_df["date"],
                 y=plot_df["actual_demand"],
                 mode="lines+markers",
-                name="Actual"
+                name="Actual",
+                line=dict(color="#00F2FE", width=2.5),
+                marker=dict(size=5, color="#38BDF8"),
+                hovertemplate="<b>Date:</b> %{x|%Y-%m-%d}<br><b>Actual:</b> %{y:,} trips<extra></extra>"
             )
         )
 
-
-    # --------------------------------------------------------
-    # Predicted
-    # --------------------------------------------------------
-
     if has_predicted:
-
         fig.add_trace(
             go.Scatter(
                 x=plot_df["date"],
                 y=plot_df["predicted_demand"],
                 mode="lines+markers",
-                name="Predicted"
+                name="Predicted",
+                line=dict(color="#F97316", width=2.5, dash="dash"),
+                marker=dict(size=5, color="#FBBF24"),
+                hovertemplate="<b>Date:</b> %{x|%Y-%m-%d}<br><b>Predicted:</b> %{y:,.1f} trips<extra></extra>"
             )
         )
 
-
-    # ========================================================
-    # LAYOUT
-    # ========================================================
-
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Actual vs Predicted Demand — Daily",
         xaxis_title="Date",
         yaxis_title="Number of Trips",
-        hovermode="x unified",
-        legend_title="Demand Type",
-        xaxis=dict(
-            tickangle=0
-        )
+        legend_title="Demand Type"
     )
 
-
-    # ========================================================
-    # DISPLAY
-    # ========================================================
-
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
 
 
 # ============================================================
 # DEMAND BY HOUR
 # ============================================================
 
-def show_hourly_chart(df):
-
+def show_hourly_chart(df, key: str | None = None):
     fig = go.Figure()
 
-    # --------------------------------------------------------
-    # Actual demand
-    # --------------------------------------------------------
-
     if "total_actual_demand" in df.columns:
-
         fig.add_trace(
             go.Bar(
                 x=df["hour"],
                 y=df["total_actual_demand"],
-                name="Actual"
+                name="Actual",
+                marker=dict(
+                    color="#00F2FE",
+                    opacity=0.9,
+                    line=dict(color="#38BDF8", width=1)
+                ),
+                hovertemplate="<b>Hour:</b> %{x}:00<br><b>Actual:</b> %{y:,} trips<extra></extra>"
             )
         )
 
-    # --------------------------------------------------------
-    # Predicted demand
-    # --------------------------------------------------------
-
     if "total_predicted_demand" in df.columns:
-
         fig.add_trace(
             go.Bar(
                 x=df["hour"],
                 y=df["total_predicted_demand"],
-                name="Predicted"
+                name="Predicted",
+                marker=dict(
+                    color="#F97316",
+                    opacity=0.9,
+                    line=dict(color="#FBBF24", width=1)
+                ),
+                hovertemplate="<b>Hour:</b> %{x}:00<br><b>Predicted:</b> %{y:,.1f} trips<extra></extra>"
             )
         )
 
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Demand by Hour",
         xaxis_title="Hour",
         yaxis_title="Total Trips",
         barmode="group",
-        hovermode="x unified",
-        xaxis=dict(
-            tickangle=0
-        )
+        hovermode="x unified"
     )
 
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
 
 
 # ============================================================
 # DEMAND BY DAY
 # ============================================================
 
-def show_daily_chart(df):
-
-    # --------------------------------------------------------
-    # Kiểm tra cột ngày
-    # --------------------------------------------------------
-
+def show_daily_chart(df, key: str | None = None):
     if "date" not in df.columns:
-
-        st.warning(
-            "Daily data không có cột 'date'."
-        )
-
+        st.warning("Daily data không có cột 'date'.")
         return
-
-
-    # --------------------------------------------------------
-    # Tạo biểu đồ
-    # --------------------------------------------------------
 
     fig = go.Figure()
 
-
-    # --------------------------------------------------------
-    # Actual demand
-    # --------------------------------------------------------
-
     if "actual_demand" in df.columns:
-
         fig.add_trace(
             go.Scatter(
                 x=df["date"],
                 y=df["actual_demand"],
                 mode="lines+markers",
-                name="Actual"
+                name="Actual",
+                line=dict(color="#00F2FE", width=2),
+                marker=dict(size=4, color="#38BDF8"),
+                hovertemplate="<b>Date:</b> %{x|%Y-%m-%d}<br><b>Actual:</b> %{y:,} trips<extra></extra>"
             )
         )
 
-
-    # --------------------------------------------------------
-    # Predicted demand
-    # --------------------------------------------------------
-
     if "predicted_demand" in df.columns:
-
         fig.add_trace(
             go.Scatter(
                 x=df["date"],
                 y=df["predicted_demand"],
                 mode="lines+markers",
-                name="Predicted"
+                name="Predicted",
+                line=dict(color="#F97316", width=2, dash="dash"),
+                marker=dict(size=4, color="#FBBF24"),
+                hovertemplate="<b>Date:</b> %{x|%Y-%m-%d}<br><b>Predicted:</b> %{y:,.1f} trips<extra></extra>"
             )
         )
 
-
-    # --------------------------------------------------------
-    # Layout
-    # --------------------------------------------------------
-
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Demand by Day",
         xaxis_title="Date",
         yaxis_title="Number of Trips",
-        hovermode="x unified",
-        legend_title="Demand Type",
-        xaxis=dict(
-            tickangle=0
-        )
+        legend_title="Demand Type"
     )
 
-
-    # --------------------------------------------------------
-    # Display
-    # --------------------------------------------------------
-
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
 
 
 # ============================================================
 # MEMBER VS CASUAL
 # ============================================================
 
-def show_member_chart(df):
-
+def show_member_chart(df, key: str | None = None):
     fig = go.Figure()
 
-    # --------------------------------------------------------
-    # Member / Casual
-    # --------------------------------------------------------
+    colors = ["#00F2FE", "#F97316"] if len(df) == 2 else ["#00F2FE"] * len(df)
 
     fig.add_trace(
         go.Bar(
@@ -303,43 +256,43 @@ def show_member_chart(df):
             y=df["trips"],
             text=df["trips"],
             textposition="auto",
-            name="Trips"
+            texttemplate="%{text:,}",
+            textfont=dict(color="#FFFFFF", weight=700),
+            name="Trips",
+            marker=dict(
+                color=colors,
+                opacity=0.9,
+                line=dict(color="rgba(255, 255, 255, 0.2)", width=1)
+            ),
+            hovertemplate="<b>User Type:</b> %{x}<br><b>Trips:</b> %{y:,}<extra></extra>"
         )
     )
 
-    # --------------------------------------------------------
-    # Layout
-    # --------------------------------------------------------
-
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Member vs Casual",
         xaxis_title="User Type",
         yaxis_title="Number of Trips",
-        xaxis=dict(
-            tickangle=0
-        ),
-        yaxis=dict(
-            rangemode="tozero"
+        hovermode="closest",
+        extra_layout=dict(
+            yaxis=dict(
+                rangemode="tozero",
+                gridcolor="rgba(148, 163, 184, 0.14)"
+            )
         )
     )
 
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
 
 
 # ============================================================
 # BIKE TYPE
 # ============================================================
 
-def show_bike_type_chart(df):
-
+def show_bike_type_chart(df, key: str | None = None):
     fig = go.Figure()
 
-    # --------------------------------------------------------
-    # Bike type
-    # --------------------------------------------------------
+    colors = ["#00F2FE", "#38BDF8"] if len(df) == 2 else ["#00F2FE"] * len(df)
 
     fig.add_trace(
         go.Bar(
@@ -347,43 +300,41 @@ def show_bike_type_chart(df):
             y=df["trips"],
             text=df["trips"],
             textposition="auto",
-            name="Trips"
+            texttemplate="%{text:,}",
+            textfont=dict(color="#FFFFFF", weight=700),
+            name="Trips",
+            marker=dict(
+                color=colors,
+                opacity=0.9,
+                line=dict(color="rgba(255, 255, 255, 0.2)", width=1)
+            ),
+            hovertemplate="<b>Bike Type:</b> %{x}<br><b>Trips:</b> %{y:,}<extra></extra>"
         )
     )
 
-    # --------------------------------------------------------
-    # Layout
-    # --------------------------------------------------------
-
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Bike Type",
         xaxis_title="Bike Type",
         yaxis_title="Number of Trips",
-        xaxis=dict(
-            tickangle=0
-        ),
-        yaxis=dict(
-            rangemode="tozero"
+        hovermode="closest",
+        extra_layout=dict(
+            yaxis=dict(
+                rangemode="tozero",
+                gridcolor="rgba(148, 163, 184, 0.14)"
+            )
         )
     )
 
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
 
 
 # ============================================================
 # TOP 10 START STATIONS
 # ============================================================
 
-def show_top_station_chart(df):
-
+def show_top_station_chart(df, key: str | None = None):
     fig = go.Figure()
-
-    # --------------------------------------------------------
-    # Top stations
-    # --------------------------------------------------------
 
     fig.add_trace(
         go.Bar(
@@ -392,168 +343,144 @@ def show_top_station_chart(df):
             orientation="h",
             text=df["trips"],
             textposition="auto",
-            name="Trips"
+            texttemplate="%{text:,}",
+            textfont=dict(color="#FFFFFF", weight=700),
+            name="Trips",
+            marker=dict(
+                color="#38BDF8",
+                opacity=0.9,
+                line=dict(color="#00F2FE", width=1)
+            ),
+            hovertemplate="<b>Station ID:</b> %{y}<br><b>Trips:</b> %{x:,}<extra></extra>"
         )
     )
 
-    # --------------------------------------------------------
-    # Layout
-    # --------------------------------------------------------
-
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Top 10 Start Stations",
         xaxis_title="Number of Trips",
         yaxis_title="Station ID",
-        xaxis=dict(
-            rangemode="tozero"
+        hovermode="closest",
+        extra_layout=dict(
+            xaxis=dict(
+                rangemode="tozero",
+                gridcolor="rgba(148, 163, 184, 0.14)"
+            )
         )
     )
 
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
 
 
 # ============================================================
 # MODEL COMPARISON
 # ============================================================
 
-def show_model_comparison_chart(df):
-
-    # --------------------------------------------------------
-    # Chỉ lấy kết quả TEST
-    # --------------------------------------------------------
-
+def show_model_comparison_chart(df, key: str | None = None):
     test_df = df[
         df["dataset"].astype(str).str.lower() == "test"
     ].copy()
 
     if test_df.empty:
-
-        st.warning(
-            "Không có dữ liệu test để so sánh model."
-        )
-
+        st.warning("Không có dữ liệu test để so sánh model.")
         return
 
-
-    # ========================================================
     # MAE + RMSE
-    # ========================================================
-
     fig = go.Figure()
 
-    # --------------------------------------------------------
-    # MAE
-    # --------------------------------------------------------
-
     if "mae" in test_df.columns:
-
         fig.add_trace(
             go.Bar(
                 x=test_df["model"],
                 y=test_df["mae"],
                 text=test_df["mae"].round(2),
                 textposition="auto",
-                name="MAE"
+                textfont=dict(color="#FFFFFF", weight=700),
+                name="MAE",
+                marker=dict(
+                    color="#00F2FE",
+                    opacity=0.9,
+                    line=dict(color="#38BDF8", width=1)
+                )
             )
         )
 
-
-    # --------------------------------------------------------
-    # RMSE
-    # --------------------------------------------------------
-
     if "rmse" in test_df.columns:
-
         fig.add_trace(
             go.Bar(
                 x=test_df["model"],
                 y=test_df["rmse"],
                 text=test_df["rmse"].round(2),
                 textposition="auto",
-                name="RMSE"
+                textfont=dict(color="#FFFFFF", weight=700),
+                name="RMSE",
+                marker=dict(
+                    color="#F97316",
+                    opacity=0.9,
+                    line=dict(color="#FBBF24", width=1)
+                )
             )
         )
 
-
-    # --------------------------------------------------------
-    # Layout
-    # --------------------------------------------------------
-
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="Model Comparison — MAE & RMSE",
         xaxis_title="Model",
         yaxis_title="Error",
         barmode="group",
-        hovermode="x unified",
-        xaxis=dict(
-            tickangle=0
-        )
+        hovermode="x unified"
     )
 
+    mae_rmse_key = f"{key}_mae_rmse" if key else None
+    st.plotly_chart(fig, width="stretch", key=mae_rmse_key)
 
-    st.plotly_chart(
-        fig,
-        width="stretch"
-    )
-
-
-    # ========================================================
     # R²
-    # ========================================================
-
     fig_r2 = go.Figure()
 
-    # --------------------------------------------------------
-    # R²
-    # --------------------------------------------------------
-
     if "r2" in test_df.columns:
-
         fig_r2.add_trace(
             go.Bar(
                 x=test_df["model"],
                 y=test_df["r2"],
                 text=test_df["r2"].round(3),
                 textposition="auto",
-                name="R²"
+                textfont=dict(color="#FFFFFF", weight=700),
+                name="R²",
+                marker=dict(
+                    color="#10B981",
+                    opacity=0.9,
+                    line=dict(color="#34D399", width=1)
+                )
             )
         )
 
-
-    # --------------------------------------------------------
-    # Layout
-    # --------------------------------------------------------
-
-    fig_r2.update_layout(
+    _apply_dark_theme(
+        fig_r2,
         title="Model Comparison — R²",
         xaxis_title="Model",
         yaxis_title="R²",
-        yaxis=dict(
-            range=[0, 1]
-        ),
-        xaxis=dict(
-            tickangle=0
+        hovermode="closest",
+        extra_layout=dict(
+            yaxis=dict(
+                range=[0, 1],
+                gridcolor="rgba(148, 163, 184, 0.14)"
+            )
         )
     )
 
-
-    st.plotly_chart(
-        fig_r2,
-        width="stretch"
-    )
+    r2_key = f"{key}_r2" if key else None
+    st.plotly_chart(fig_r2, width="stretch", key=r2_key)
 
 
 # ============================================================
 # FUTURE DEMAND FORECAST (PHASE 2)
 # ============================================================
 
-def show_future_forecast_chart(df):
+def show_future_forecast_chart(df, key: str | None = None):
     """
     Hiển thị biểu đồ đường dự báo nhu cầu 7 ngày tiếp theo (168 giờ).
     Trục thời gian (target_time) sắp xếp tăng dần.
+    Đồng bộ phong cách Geospatial Intelligence Dark Theme với line Cyan và fill mờ.
     """
     if df.empty:
         st.warning("⚠️ Không có dữ liệu Future Demand Forecast.")
@@ -565,49 +492,50 @@ def show_future_forecast_chart(df):
 
     fig = go.Figure()
 
-    # Thêm đường dự báo nhu cầu tương lai
     fig.add_trace(
         go.Scatter(
             x=plot_df["target_time"],
             y=plot_df["predicted_demand"],
             mode="lines+markers",
             name="Forecast Demand",
-            line=dict(color="#0066CC", width=2.5),
-            marker=dict(size=4, color="#004C99"),
+            line=dict(color="#00F2FE", width=2.5),
+            marker=dict(size=4, color="#38BDF8"),
             fill="tozeroy",
-            fillcolor="rgba(0, 102, 204, 0.08)",
+            fillcolor="rgba(0, 242, 254, 0.10)",
             hovertemplate="<b>Thời gian:</b> %{x|%Y-%m-%d %H:%M}<br><b>Dự báo:</b> %{y:.1f} chuyến<extra></extra>",
         )
     )
 
-    fig.update_layout(
+    _apply_dark_theme(
+        fig,
         title="7-Day Future Demand Forecast (168 Continuous Hours)",
         xaxis_title="Thời gian (Giờ)",
         yaxis_title="Nhu cầu dự báo (Chuyến / Giờ)",
         hovermode="x unified",
-        xaxis=dict(
-            tickformat="%b %d, %H:%M",
-            dtick=24 * 3600 * 1000,  # Tick mỗi 24 giờ
-            gridcolor="rgba(200, 200, 200, 0.2)",
-        ),
-        yaxis=dict(
-            gridcolor="rgba(200, 200, 200, 0.2)",
-            rangemode="tozero",
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-        ),
-        margin=dict(l=40, r=40, t=60, b=40),
+        extra_layout=dict(
+            xaxis=dict(
+                tickformat="%b %d, %H:%M",
+                dtick=24 * 3600 * 1000,
+                gridcolor="rgba(148, 163, 184, 0.14)",
+                tickangle=0
+            ),
+            yaxis=dict(
+                rangemode="tozero",
+                gridcolor="rgba(148, 163, 184, 0.14)"
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            margin=dict(l=45, r=35, t=60, b=45)
+        )
     )
 
-    st.plotly_chart(
-        fig,
-        width="stretch",
-    )
+    st.plotly_chart(fig, width="stretch", key=key)
+
 
 
 # ============================================================
